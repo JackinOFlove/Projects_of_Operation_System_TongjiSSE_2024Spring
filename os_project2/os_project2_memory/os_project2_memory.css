@@ -1,0 +1,164 @@
+@charset "UTF-8";
+
+/*最顶上表头的格式*/
+.navbar {
+    display: block;
+    font-size: large;
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+    background-color: rgb(173, 227, 247);
+}
+
+/*选择算法方框的表头格式*/
+.Algorithm_choose_bar {
+    width: 320px;
+    font-size: small;
+    text-align: center;
+    border-style: solid;
+    border-color: rgb(39, 155, 198);
+    background-color: rgb(173, 227, 247);
+    font-family: 'Times New Roman', Times, serif;
+    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+}
+
+/*选择算法方框的内容格式*/
+.Algorithm_choice {
+    font-size: 11px;
+    text-align: center;
+    font-weight: lighter;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+/*参数显示方框的表头格式*/
+.Relevant_parameter_bar {
+    width: 320px;
+    font-size: small;
+    text-align: center;
+    border-style: solid;
+    border-color: rgb(39, 155, 198);
+    background-color: rgb(173, 227, 247);
+    font-family: 'Times New Roman', Times, serif;
+    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+}
+
+/*参数显示方框的内容格式*/
+.Relevant_parameter {
+    font-weight: 500;
+    font-size: 16px;
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+/*结果显示方框的表头格式*/
+.Simulation_result_bar {
+    width: 320px;
+    font-size: small;
+    text-align: center;
+    border-style: solid;
+    border-color: rgb(39, 155, 198);
+    background-color: rgb(173, 227, 247);
+    font-family: 'Times New Roman', Times, serif;
+    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+}
+
+/*结果显示方框的内容格式*/
+.Simulation_result {
+    font-weight: 500;
+    font-size: 16px;
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+/*按键平常的格式*/
+button {
+    width: 200px;
+    height: 45px;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    margin-left: 60px;
+    border-color: rgb(39, 155, 198);
+    background-color: rgb(173, 227, 247);
+    font-family: 'Times New Roman', Times, serif;
+    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+}
+
+/*按键鼠标拂过的格式*/
+button:hover {
+    width: 200px;
+    height: 45px;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    margin-left: 60px;
+    border-color: rgb(171, 228, 248);
+    background-color: rgb(226, 241, 247);
+    font-family: 'Times New Roman', Times, serif;
+    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+}
+
+/*表格标头的格式*/
+.Table_caption {
+    width: 400px;
+    height: 28px;
+    margin-left: 338px;
+    margin-top: 0px;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+    text-decoration: underline;
+    border-style: solid;
+    border-color: rgb(39, 155, 198);
+    background-color: rgb(173, 227, 247);
+    font-family: 'Times New Roman', Times, serif;
+    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+}
+
+/*表格内容的格式*/
+table,
+th,
+tr {
+    height: 40px;
+    border: 2px;
+    border-style: solid;
+    border-collapse: collapse;
+    border-color: rgb(39, 155, 198);
+    margin-top: 0px;
+    margin-left: 20px;
+    font-family: 'Times New Roman', Times, serif;
+    text-align: center;
+    background-color: rgb(173, 227, 247);
+    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+}
+
+/*表格单元格的格式*/
+td {
+    height: 30px;
+    border: 2px;
+    border-style: solid;
+    border-collapse: collapse;
+    border-color: rgb(39, 155, 198);
+    font-size: 16px;
+}
+
+/*表格每列的表头格式*/
+.Table_bar {
+    font-size: 17px;
+    font-weight: bold;
+    text-align: center;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+/*整个显示框架的格式*/
+.details {
+    height: 600px;
+    overflow: auto;
+}
+
+/*页脚的格式*/
+.Footer {
+    font-size: 13px;
+    text-align: center;
+    font-weight: lighter;
+    font-family: 'Times New Roman', Times, serif;
+}

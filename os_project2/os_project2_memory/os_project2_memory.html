@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory_Simulation_by_2253744_林觉凯</title>
+    <link rel="stylesheet" type="text/css" href="os_project2_memory.css">
+    <script type="text/javascript" src="os_project2_memory.js"></script>
+</head>
+
+<body>
+    <!-- 最顶上的介绍标签 -->
+
+    <head>
+        <div class="navbar">
+            <h1>Memory_Simulation_by_2253744_林觉凯</h1>
+        </div>
+    </head>
+    <!-- 主窗口 -->
+    <main id="Main_Window">
+
+        <div style="display: flex;flex-direction: row;">
+            <div style="display: flex;flex-direction: column;">
+                <!-- 左边第一个方框，算法的选择 -->
+                <div class="Algorithm_choose_bar">
+                    <h2 style="text-decoration: underline;">Please choose one kind of Algorithm:</h2>
+                    <div class="Algorithm_choice">
+                        <label for="FIFO-type" style="font-size: medium;">
+                            <input type="radio" name="Algorithm" id="FIFO-radio" value="FIFO" checked>FIFO
+                        </label>
+                        <br><br>
+                        <label for="LRU-type" style="font-size: medium;">
+                            <input type="radio" name="Algorithm" id="LRU-radio" value="LRU">LRU
+                        </label>
+                        <br><br>
+                    </div>
+                </div>
+                <br><br>
+                <!-- 左边第二个方框，参数的显示 -->
+                <div class="Relevant_parameter_bar">
+                    <h2 style="text-decoration: underline;">Relevant parameters are as follows:</h2>
+                    <div class="Relevant_parameter">
+                        <h3 class="Relevant_parameter">Number of Memory Blocks:<span
+                                id="Number_of_Memory_Blocks">&nbsp;4</span>
+                        </h3>
+                        <h3 class="Relevant_parameter">Number of Total Instructions:<span
+                                id="Number_of_Total_Instructions">&nbsp;320</span></h3>
+                        <h3 class="Relevant_parameter">Number of Instructions Per Page:<span
+                                id="Number_of_Instructions_Per_Page">&nbsp;10</span></h3>
+                    </div>
+                </div>
+                <br><br>
+                <!-- 左边第三个方框，模拟请求调页的结果显示 -->
+                <div class="Simulation_result_bar">
+                    <h2 style="text-decoration: underline;">Simulation results are as follows:</h2>
+                    <div class="Simulation_result">
+                        <h3 class="Simulation_result">Numbers of Missing Page: <span
+                                id="Numbers_of_Missing_Page">&nbsp;NULL</span>
+                        </h3>
+                        <h3 class="Simulation_result">Page Fault Rate: <span id="Page_Fault_Rate">&nbsp;NULL</span></h3>
+                    </div>
+                </div>
+                <br><br>
+                <!-- 左边下面的两个按钮，Clear和Start按键 -->
+                <button id="Start_button">Start</button><br>
+                <button id="Clear_button">Clear</button><br>
+            </div>
+
+            <div style="display: flex;flex-direction: column;">
+                <!-- 右边显示列表的描述 -->
+                <h2 class="Table_caption">Simulation details are as follows:</h2>
+
+                <div class="details">
+                    <table id="showTable">
+                        <!-- 显示列表每一列的宽度设置 -->
+                        <colgroup>
+                            <col style="width: 80px;">
+                            <col style="width: 90px;">
+                            <col style="width: 140px;">
+                            <col style="width: 140px;">
+                            <col style="width: 140px;">
+                            <col style="width: 140px;">
+                            <col style="width: 100px;">
+                            <col style="width: 110px;">
+                            <col style="width: 110px;">
+                        </colgroup>
+                        <!-- 显示列表的表头 -->
+                        <thead>
+                            <tr>
+                                <th scope="col" , class="Table_bar">Sequence</th>
+                                <th scope="col" , class="Table_bar">Instruction</th>
+                                <th scope="col" , class="Table_bar">Memory Block 1</th>
+                                <th scope="col" , class="Table_bar">Memory Block 2</th>
+                                <th scope="col" , class="Table_bar">Memory Block 3</th>
+                                <th scope="col" , class="Table_bar">Memory Block 4</th>
+                                <th scope="col" , class="Table_bar">Page Fault</th>
+                                <th scope="col" , class="Table_bar">Load Block</th>
+                                <th scope="col" , class="Table_bar">Remove Page</th>
+                            </tr>
+                        </thead>
+
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="text/javascript" src="os_project2_memory.js"></script>
+    <!-- 页脚的注释 -->
+    <div>
+        <h1 class="Footer">
+            Copyright © 2024, Juekai Lin 林觉凯,School of Software Engineering, Tongji University,All Rights Reserved.
+        </h1>
+    </div>
+</body>
+
+</html>
