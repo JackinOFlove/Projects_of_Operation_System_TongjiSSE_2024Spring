@@ -2,11 +2,11 @@
 
 ### Project 1
 
-Elevator scheduling——Multi-Thread Programming.
+Elevator scheduling——Multi-Thread Programming
 
 ### Project 2
 
-Request page for the memory management project.
+Request page for the memory management project
 
 ### Project 3
 
