@@ -53,7 +53,7 @@
 }
 
 .navbar:hover h1 {
-    transform: scale(1.02);
+    transform: scale(1.00);
     letter-spacing: 1px;
 }
 
