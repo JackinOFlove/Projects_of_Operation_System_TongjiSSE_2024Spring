@@ -1,5 +1,42 @@
 @charset "UTF-8";
 
+/* 动画关键帧定义 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 /*最顶上表头的格式*/
 .navbar {
     display: block;
@@ -7,6 +44,17 @@
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
     background-color: rgb(173, 227, 247);
+    transition: all 0.3s ease;
+    border-radius: 5px;
+}
+
+.navbar h1 {
+    transition: all 0.3s ease;
+}
+
+.navbar:hover h1 {
+    transform: scale(1.02);
+    letter-spacing: 1px;
 }
 
 /*选择算法方框的表头格式*/
@@ -19,6 +67,13 @@
     background-color: rgb(173, 227, 247);
     font-family: 'Times New Roman', Times, serif;
     box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.Algorithm_choose_bar:hover {
+    box-shadow: 5px 8px 20px 0px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
 }
 
 /*选择算法方框的内容格式*/
@@ -27,6 +82,17 @@
     text-align: center;
     font-weight: lighter;
     font-family: 'Times New Roman', Times, serif;
+    padding: 10px;
+}
+
+/* 单选按钮样式 */
+input[type="radio"] {
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+input[type="radio"]:hover+label {
+    color: rgb(25, 118, 210);
 }
 
 /*参数显示方框的表头格式*/
@@ -39,6 +105,13 @@
     background-color: rgb(173, 227, 247);
     font-family: 'Times New Roman', Times, serif;
     box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.Relevant_parameter_bar:hover {
+    box-shadow: 5px 8px 20px 0px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
 }
 
 /*参数显示方框的内容格式*/
@@ -47,6 +120,16 @@
     font-size: 16px;
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
+}
+
+.Relevant_parameter span {
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.Relevant_parameter:hover span {
+    transform: scale(1.1);
+    color: rgb(25, 118, 210);
 }
 
 /*结果显示方框的表头格式*/
@@ -59,6 +142,13 @@
     background-color: rgb(173, 227, 247);
     font-family: 'Times New Roman', Times, serif;
     box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.Simulation_result_bar:hover {
+    box-shadow: 5px 8px 20px 0px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
 }
 
 /*结果显示方框的内容格式*/
@@ -67,6 +157,16 @@
     font-size: 16px;
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
+}
+
+.Simulation_result span {
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.Simulation_result:hover span {
+    transform: scale(1.1);
+    color: rgb(25, 118, 210);
 }
 
 /*按键平常的格式*/
@@ -81,6 +181,11 @@ button {
     background-color: rgb(173, 227, 247);
     font-family: 'Times New Roman', Times, serif;
     box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
 }
 
 /*按键鼠标拂过的格式*/
@@ -94,7 +199,34 @@ button:hover {
     border-color: rgb(171, 228, 248);
     background-color: rgb(226, 241, 247);
     font-family: 'Times New Roman', Times, serif;
-    box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+    box-shadow: 5px 8px 20px 0px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+button:active {
+    transform: translateY(1px);
+    box-shadow: 2px 3px 10px 0px rgba(0, 0, 0, 0.1);
+}
+
+/* 加载中的按钮样式 */
+button.loading {
+    position: relative;
+    color: transparent;
+}
+
+button.loading::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin-top: -10px;
+    margin-left: -10px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: rgb(39, 155, 198);
+    animation: spin 1s linear infinite;
 }
 
 /*表格标头的格式*/
@@ -112,6 +244,13 @@ button:hover {
     background-color: rgb(173, 227, 247);
     font-family: 'Times New Roman', Times, serif;
     box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.Table_caption:hover {
+    box-shadow: 5px 8px 20px 0px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
 }
 
 /*表格内容的格式*/
@@ -129,6 +268,7 @@ tr {
     text-align: center;
     background-color: rgb(173, 227, 247);
     box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
 }
 
 /*表格单元格的格式*/
@@ -139,6 +279,11 @@ td {
     border-collapse: collapse;
     border-color: rgb(39, 155, 198);
     font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+
+tr:hover td {
+    background-color: rgb(203, 237, 250);
 }
 
 /*表格每列的表头格式*/
@@ -147,12 +292,31 @@ td {
     font-weight: bold;
     text-align: center;
     font-family: 'Times New Roman', Times, serif;
+    background-color: rgb(152, 218, 242);
 }
 
 /*整个显示框架的格式*/
 .details {
     height: 600px;
     overflow: auto;
+    border-radius: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(39, 155, 198) rgb(226, 241, 247);
+}
+
+.details::-webkit-scrollbar {
+    width: 8px;
+}
+
+.details::-webkit-scrollbar-track {
+    background: rgb(226, 241, 247);
+    border-radius: 10px;
+}
+
+.details::-webkit-scrollbar-thumb {
+    background-color: rgb(39, 155, 198);
+    border-radius: 10px;
+    border: 3px solid rgb(226, 241, 247);
 }
 
 /*页脚的格式*/
@@ -161,4 +325,12 @@ td {
     text-align: center;
     font-weight: lighter;
     font-family: 'Times New Roman', Times, serif;
+    margin-top: -30px;
+    padding: 10px;
+    transition: all 0.3s ease;
+}
+
+.Footer:hover {
+    transform: scale(1.00);
+    color: rgb(39, 155, 198);
 }
