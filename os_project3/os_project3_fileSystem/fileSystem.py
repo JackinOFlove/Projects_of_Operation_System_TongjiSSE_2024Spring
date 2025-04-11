@@ -53,6 +53,29 @@ class FAT:
             if self.fat[i] == -2:
                 return i
         return -1
+        
+    # 计算所需的物理块数
+    def calculateRequiredBlocks(self, data_size):
+        # 计算需要多少个完整块
+        full_blocks = data_size // BLOCKSIZE
+        # 如果有剩余数据，还需要一个额外的块
+        if data_size % BLOCKSIZE > 0:
+            full_blocks += 1
+        return full_blocks
+        
+    # 检查是否有足够的空闲块
+    def hasEnoughSpace(self, data_size):
+        required_blocks = self.calculateRequiredBlocks(data_size)
+        free_blocks = 0
+        
+        # 计算FAT中的空闲块数量
+        for i in range(BLOCKNUMBER):
+            if self.fat[i] == -2:
+                free_blocks += 1
+                if free_blocks >= required_blocks:
+                    return True
+        
+        return False
 
     def write(self, data, disk):                # 将数据写入磁盘
         start = -1
@@ -61,7 +84,7 @@ class FAT:
         while data != "":
             location = self.findBlank()
             if location == -1:                  # 找不到空闲位置了
-                raise Exception(print('磁盘空间不足'))
+                return -1  # 返回-1表示写入失败
             if current != -1:
                 self.fat[current] = location
             else:
@@ -69,7 +92,7 @@ class FAT:
             current = location
             data = disk[current].write(data)
             self.fat[current] = -1
-        return start 
+        return start
 
     def delete(self, start, disk):              # 删除从start位置开始的所有数据
         if start == -1:
@@ -85,8 +108,45 @@ class FAT:
         disk[start].clear()
 
     def update(self, start, data, disk):        # 更新从start位置开始的所有数据
+        # 计算新数据所需的块数
+        required_blocks = self.calculateRequiredBlocks(len(data))
+        
+        # 计算当前占用的块数
+        occupied_blocks = 0
+        if start != -1:
+            current = start
+            while self.fat[current] != -1:
+                occupied_blocks += 1
+                current = self.fat[current]
+            occupied_blocks += 1  # 加上最后一个块
+        
+        # 计算实际需要的额外空闲块数
+        extra_blocks_needed = required_blocks - occupied_blocks
+        
+        # 如果需要额外块，检查是否有足够的空闲块
+        if extra_blocks_needed > 0:
+            free_blocks = 0
+            for i in range(BLOCKNUMBER):
+                if self.fat[i] == -2:
+                    free_blocks += 1
+                    if free_blocks >= extra_blocks_needed:
+                        break
+            
+            # 如果空闲块不足，直接返回失败
+            if free_blocks < extra_blocks_needed:
+                return -1
+
+        # 如果有足够空间或不需要额外空间，则安全删除原数据并写入新数据
+        old_start = start  # 保存原起始位置，以防写入失败
         self.delete(start, disk) 
-        return self.write(data, disk) 
+        new_start = self.write(data, disk)
+        
+        # 如果写入失败，尝试恢复原数据（虽然这种情况理论上不应该发生）
+        if new_start == -1:
+            # 这里可以添加恢复原数据的逻辑，但实际上前面的检查应该已经避免了这种情况
+            pass
+            
+        return new_start
 
     def read(self, start, disk):                # 读取从start位置开始的所有数据
         data = ""
@@ -105,7 +165,12 @@ class FCB:
         self.start = -1 
 
     def update(self, newData, fat, disk):       # 更新FCB
-        self.start = fat.update(self.start, newData, disk) 
+        new_start = fat.update(self.start, newData, disk)
+        if new_start != -1:  # 检查更新是否成功
+            self.start = new_start
+            self.updateTime = time.localtime(time.time())
+            return True
+        return False
 
     def delete(self, fat, disk):                # 删除FCB
         fat.delete(self.start, disk) 
@@ -132,14 +197,14 @@ class CatalogNode:
 
 # 定义类：属性视图
 class attributeForm(QWidget): 
-    def __init__(self, name, isFile, createTime, updateTime, child = 0):
+    def __init__(self, name, isFile, createTime, updateTime, size, child = 0):
         super().__init__()
 
         # 设置提示框信息
         self.name = name
         self.setWindowTitle('attribute')
         self.setWindowIcon(QIcon('images/attribute.png'))
-        self.resize(350, 200)
+        self.resize(350, 220)  # 增加一点高度以适应新增内容
         layout = QVBoxLayout()
 
         if isFile: 
@@ -149,17 +214,28 @@ class attributeForm(QWidget):
 
         fileType = QLabel(self)
         if isFile:
-            fileType.setText('type: file')
+            fileType.setText('Type: file')
         else:
-            fileType.setText('type: folder')
+            fileType.setText('Type: folder')
         fileType.setFont(QFont('Times New Roman', 10))
         layout.addWidget(fileType)
 
         # 文件/文件夹名称
         fileName = QLabel(self)
-        fileName.setText('name: ' + self.name)
+        fileName.setText('Name: ' + self.name)
         fileName.setFont(QFont('Times New Roman', 10))
         layout.addWidget(fileName)
+
+        # 文件/文件夹大小
+        sizeLabel = QLabel(self)
+        if size < 1024:
+            sizeLabel.setText('Size: ' + str(size) + ' B')
+        elif size < 1024 * 1024:
+            sizeLabel.setText('Size: ' + str(round(size / 1024, 2)) + ' KB')
+        else:
+            sizeLabel.setText('Size: ' + str(round(size / (1024 * 1024), 2)) + ' MB')
+        sizeLabel.setFont(QFont('Times New Roman', 10))
+        layout.addWidget(sizeLabel)
 
         # 文件/文件夹创建时间
         createLabel = QLabel(self)
@@ -172,7 +248,7 @@ class attributeForm(QWidget):
         minute = minute.zfill(2)
         second = str(createTime.tm_sec)
         second = second.zfill(2)
-        createLabel.setText('create time: ' + year + '.' + month + '.' + day + '. ' + hour + ':' + minute + ':' + second)
+        createLabel.setText('Create Time: ' + year + '.' + month + '.' + day + '. ' + hour + ':' + minute + ':' + second)
         createLabel.setFont(QFont('Times New Roman', 10))
         layout.addWidget(createLabel)
 
@@ -270,6 +346,148 @@ class File_Widget(QListWidget):
         self.curNode = curNode
         self.parents = parents
         self.isEdit = False
+        
+        # 启用鼠标跟踪
+        self.setMouseTracking(True)
+        
+        # 创建自定义悬浮框
+        self.custom_tooltip = CustomTooltip(self)
+        
+        # 跟踪上一次悬停的项目
+        self.last_hovered_item = None
+        self.hover_timer = QTimer()
+        self.hover_timer.setSingleShot(True)
+        self.hover_timer.timeout.connect(self.showItemTooltip)
+        
+        # 用于追踪鼠标是否离开了控件
+        self.leave_timer = QTimer()
+        self.leave_timer.setSingleShot(True)
+        self.leave_timer.timeout.connect(self.hideTooltipIfNeeded)
+        
+        # 监听模型变更，以便在视图改变时重置悬浮状态
+        self.model().rowsRemoved.connect(self.resetHoverState)
+        self.model().modelReset.connect(self.resetHoverState)
+        
+    # 重置悬浮状态
+    def resetHoverState(self):
+        self.last_hovered_item = None
+        self.hover_timer.stop()
+        if self.custom_tooltip.isVisible():
+            self.custom_tooltip.hideTooltip()
+        
+    # 当鼠标移动时跟踪悬停项目
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        super().mouseMoveEvent(event)
+        item = self.itemAt(event.pos())
+        
+        # 重置离开定时器
+        self.leave_timer.stop()
+        
+        # 如果鼠标移动到新项目上
+        if item != self.last_hovered_item:
+            # 如果之前有悬停的项目，隐藏工具提示
+            if self.last_hovered_item and self.custom_tooltip.isVisible():
+                self.custom_tooltip.hideTooltip()
+                
+            self.last_hovered_item = item
+            self.hover_timer.stop()
+            
+            if item:
+                # 延迟显示工具提示，使体验更自然
+                self.hover_timer.start(500)  # 500毫秒延迟
+    
+    # 当鼠标离开控件
+    def leaveEvent(self, event: QEvent) -> None:
+        super().leaveEvent(event)
+        # 设置一个短暂的延迟，以防鼠标只是短暂地离开然后又回来
+        self.leave_timer.start(200)
+    
+    # 隐藏工具提示如果需要
+    def hideTooltipIfNeeded(self):
+        # 如果鼠标真的离开了控件
+        if self.custom_tooltip.isVisible():
+            self.custom_tooltip.hideTooltip()
+        self.last_hovered_item = None
+    
+    # 显示项目工具提示
+    def showItemTooltip(self):
+        # 安全检查：确保last_hovered_item仍然有效
+        if not self.last_hovered_item:
+            return
+            
+        try:
+            # 尝试访问text属性来检查项目是否有效
+            item_text = self.last_hovered_item.text()
+            
+            # 找到对应的节点
+            node = None
+            for child in self.curNode.children:
+                if child.name == item_text:
+                    node = child
+                    break
+                    
+            if node:
+                # 生成工具提示内容
+                tooltip_content = self.createTooltipForNode(node)
+                
+                # 再次检查项目是否仍然有效
+                try:
+                    # 获取项目的全局位置
+                    item_rect = self.visualItemRect(self.last_hovered_item)
+                    global_pos = self.mapToGlobal(item_rect.bottomRight())
+                    # 显示自定义工具提示
+                    self.custom_tooltip.showTooltip(tooltip_content, global_pos)
+                except:
+                    # 项目可能在中途被删除
+                    self.last_hovered_item = None
+                    if self.custom_tooltip.isVisible():
+                        self.custom_tooltip.hideTooltip()
+                    
+        except Exception as e:
+            # 如果访问属性出错，说明对象已无效
+            self.last_hovered_item = None
+            if self.custom_tooltip.isVisible():
+                self.custom_tooltip.hideTooltip()
+
+    # 为节点创建悬浮提示内容
+    def createTooltipForNode(self, node):
+        # 获取类型
+        node_type = "File" if node.isFile else "Folder"
+        
+        # 获取大小
+        if node.isFile:
+            size = len(node.data.read(self.parents.fat, self.parents.disk))
+            if size < 1024:
+                size_str = f"{size} Bytes"
+            elif size < 1024 * 1024:
+                size_str = f"{size/1024:.2f} KB"
+            else:
+                size_str = f"{size/(1024*1024):.2f} MB"
+        else:
+            size = self.parents.getSize(node)
+            if size < 1024:
+                size_str = f"{size} Bytes"
+            elif size < 1024 * 1024:
+                size_str = f"{size/1024:.2f} KB"
+            else:
+                size_str = f"{size/(1024*1024):.2f} MB"
+        
+        # 获取修改日期
+        year = str(node.updateTime.tm_year)
+        month = str(node.updateTime.tm_mon).zfill(2)
+        day = str(node.updateTime.tm_mday).zfill(2)
+        hour = str(node.updateTime.tm_hour).zfill(2)
+        minute = str(node.updateTime.tm_min).zfill(2)
+        
+        mod_time = f"{year}-{month}-{day} {hour}:{minute}"
+        
+        # 创建适合深灰色背景的HTML内容
+        tooltip = f"""
+        <p style='margin:5px 0; color:white;'><b>Type:</b> {node_type}</p>
+        <p style='margin:5px 0; color:white;'><b>Size:</b> {size_str}</p>
+        <p style='margin:5px 0; color:white;'><b>Modified:</b> {mod_time}</p>
+        """
+        return tooltip
 
     # 回车按下时编辑完成
     def keyPressEvent(self, e: QKeyEvent) -> None:
@@ -333,7 +551,14 @@ class File_Widget(QListWidget):
                 if not sameName:
                     break
 
+            # 更新节点名称
             self.curNode.children[self.index].name = self.edited_item.text()
+            
+            # 确保重命名后字体大小与当前视图一致
+            if hasattr(self.parents, 'fontSizes') and hasattr(self.parents, 'currentIconSize'):
+                current_font = QFont("Times New Roman", self.parents.fontSizes[self.parents.currentIconSize])
+                self.edited_item.setFont(current_font)
+                
             self.parents.updateTree()
             self.edited_item = None
 
@@ -349,6 +574,13 @@ class myWindow(QMainWindow):
         
         # 添加剪贴板功能
         self.clipboard = None
+        
+        # 设置默认图标大小 (中图标)
+        self.currentIconSize = 1  # 0=小图标, 1=中图标, 2=大图标
+        # 定义三种大小：图标大小，网格大小，字体大小
+        self.iconSizes = [(32, 32), (64, 64), (128, 128)]
+        self.gridSizes = [(80, 70), (120, 100), (180, 150)]
+        self.fontSizes = [8, 10, 12]  # 字体大小
 
         self.resize(1500,1000)
         self.setFont(QFont("Times New Roman", 10))
@@ -428,8 +660,8 @@ class myWindow(QMainWindow):
         self.listView.setFont(QFont("Times New Roman", 11))
         self.listView.setMinimumWidth(1000)
         self.listView.setViewMode(QListView.IconMode)
-        self.listView.setIconSize(QSize(100,100))
-        self.listView.setGridSize(QSize(120,100))
+        # 使用当前图标大小
+        self.updateIconSize()
         self.listView.setResizeMode(QListView.Adjust)
         self.listView.setMovement(QListView.Static)
         self.listView.setEditTriggers(QAbstractItemView.AllEditTriggers)
@@ -440,6 +672,9 @@ class myWindow(QMainWindow):
         self.listView.setContextMenuPolicy(Qt.CustomContextMenu)
         self.listView.customContextMenuRequested.connect(self.show_menu)
 
+        # 初始化状态栏
+        self.initStatusBar()
+        
         self.updatePrint()
         self.lastLoc = -1
         
@@ -449,6 +684,104 @@ class myWindow(QMainWindow):
         QShortcut(QKeySequence(self.tr("Ctrl+V")), self, self.pasteFile)
         QShortcut(QKeySequence(self.tr("F2")), self, self.rename)
         QShortcut(QKeySequence(self.tr("Ctrl+F")), self, self.focusSearch)
+
+    # 初始化状态栏
+    def initStatusBar(self):
+        self.statusBar = self.statusBar()
+        
+        # 项目数量标签
+        self.projectCountLabel = QLabel()
+        self.projectCountLabel.setFont(QFont("Times New Roman", 10))
+        self.statusBar.addWidget(self.projectCountLabel)
+        
+        # 添加固定宽度的空白区域
+        spacer = QWidget()
+        spacer.setFixedWidth(20)
+        self.statusBar.addWidget(spacer)
+        
+        # 内存使用进度条
+        self.memoryProgressBar = QProgressBar()
+        self.memoryProgressBar.setFixedWidth(200)
+        self.memoryProgressBar.setFixedHeight(16)
+        self.memoryProgressBar.setTextVisible(False)  # 不显示进度条上的文字
+        self.statusBar.addWidget(self.memoryProgressBar)
+        
+        # 内存使用文本信息
+        self.memoryInfoLabel = QLabel()
+        self.memoryInfoLabel.setFont(QFont("Times New Roman", 10))
+        self.statusBar.addWidget(self.memoryInfoLabel)
+
+    # 计算已使用内存
+    def calculateUsedMemory(self):
+        used_blocks = 0
+        for i in range(BLOCKNUMBER):
+            if self.fat.fat[i] != -2:  # -2表示空闲
+                used_blocks += 1
+        
+        used_memory = used_blocks * BLOCKSIZE
+        total_memory = BLOCKNUMBER * BLOCKSIZE
+        
+        return used_memory, total_memory
+
+    # 更新上方窗口路径和状态栏
+    def updatePrint(self):
+        # 更新项目数量显示
+        self.projectCountLabel.setText(str(len(self.curNode.children)) + ' project(s)')
+        
+        # 更新内存使用情况
+        used_memory, total_memory = self.calculateUsedMemory()
+        usage_percent = (used_memory / total_memory) * 100
+        
+        # 设置进度条
+        self.memoryProgressBar.setValue(int(usage_percent))
+        
+        # 根据使用率改变进度条颜色
+        if usage_percent < 60:
+            # 绿色 - 内存充足
+            color = "#4CAF50"
+        elif usage_percent < 80:
+            # 黄色 - 内存使用较多
+            color = "#FFC107"
+        else:
+            # 红色 - 内存不足警告
+            color = "#F44336"
+            
+        self.memoryProgressBar.setStyleSheet(f"""
+            QProgressBar {{
+                border: 1px solid #cccccc;
+                border-radius: 5px;
+                background-color: #f0f0f0;
+            }}
+            QProgressBar::chunk {{
+                background-color: {color};
+                border-radius: 5px;
+            }}
+        """)
+        
+        # 格式化内存显示为精确的字节数
+        # 使用更通用的方式实现千位分隔符
+        def format_bytes(num):
+            result = ''
+            num_str = str(num)
+            while len(num_str) > 3:
+                result = ',' + num_str[-3:] + result
+                num_str = num_str[:-3]
+            result = num_str + result
+            return result
+            
+        used_bytes_formatted = format_bytes(used_memory)
+        total_bytes_formatted = format_bytes(total_memory)
+        memory_text = f"{used_bytes_formatted} bytes / {total_bytes_formatted} bytes ({usage_percent:.1f}%)"
+        
+        self.memoryInfoLabel.setText(memory_text)
+        
+        # 更新路径显示
+        s ='> root'
+        for i,item in enumerate(self.baseUrl):
+            if i == 0:
+                continue
+            s += " > " + item
+        self.curLocation.setText(s)
 
     def clickTreeItem(self,item,column): 
         ways = [item]
@@ -501,6 +834,11 @@ class myWindow(QMainWindow):
     # 打开文件
     def openFile(self,modelindex: QModelIndex) -> None: 
         self.listView.close_edit() 
+        
+        # 重置悬浮状态，防止引用已删除对象
+        if hasattr(self.listView, 'resetHoverState'):
+            self.listView.resetHoverState()
+            
         try:
             item = self.listView.item(modelindex.row())
         except:
@@ -540,16 +878,6 @@ class myWindow(QMainWindow):
             self.backAction.setEnabled(True)
             self.updatePrint()
 
-    # 更新上方窗口路径
-    def updatePrint(self):
-        self.statusBar().showMessage(str(len(self.curNode.children)) + ' project(s)')
-        s ='> root'
-        for i,item in enumerate(self.baseUrl):
-            if i == 0:
-                continue
-            s += " > " + item
-        self.curLocation.setText(s)
-
     # 重命名操作
     def rename(self):
         if len(self.listView.selectedItems()) == 0:
@@ -586,6 +914,8 @@ class myWindow(QMainWindow):
         self.curNode.children.remove(self.curNode.children[index])
         self.catalog = self.updateCatalog(self.rootNode) 
         self.updateTree() 
+        # 更新内存使用情况显示
+        self.updatePrint()
 
     # 递归删除
     def deleteFileRecursive(self,node): 
@@ -607,36 +937,75 @@ class myWindow(QMainWindow):
 
     # 新建文件夹
     def createFolder(self):
-        self.item_1 = QListWidgetItem(QIcon("images/folder.png"), "新建文件夹")
+        # 使用当前设置的字体大小
+        current_font = QFont("Times New Roman", self.fontSizes[self.currentIconSize])
+        
+        # 获取唯一的文件夹名称
+        folderName = self.getUniqueNameInFolder("New Folder", self.curNode)
+        
+        self.item_1 = QListWidgetItem(QIcon("images/folder.png"), folderName)
+        self.item_1.setFont(current_font)  # 应用当前字体大小
         self.listView.addItem(self.item_1)
         self.listView.editLast()
         newNode = CatalogNode(self.item_1.text(),False,self.fat,self.disk,time.localtime(time.time()),self.curNode)
         self.curNode.children.append(newNode)
         self.catalog.append(newNode)
         self.updateTree()
+        # 更新内存使用情况显示
+        self.updatePrint()
 
     # 新建文件
     def createFile(self):
-        self.item_1 = QListWidgetItem(QIcon("images/file.png"), "新建文件")
+        # 检查是否至少有一个空闲块可用
+        if self.fat.findBlank() == -1:
+            self.showDiskFullWarning()
+            return
+        
+        # 使用当前设置的字体大小
+        current_font = QFont("Times New Roman", self.fontSizes[self.currentIconSize])
+        
+        # 获取唯一的文件名称    
+        fileName = self.getUniqueNameInFolder("New File", self.curNode)
+            
+        self.item_1 = QListWidgetItem(QIcon("images/file.png"), fileName)
+        self.item_1.setFont(current_font)  # 应用当前字体大小
         self.listView.addItem(self.item_1)
         self.listView.editLast()
         newNode = CatalogNode(self.item_1.text(),True,self.fat,self.disk,time.localtime(time.time()),self.curNode)
         self.curNode.children.append(newNode)
         self.catalog.append(newNode)
         self.updateTree()
+        # 更新内存使用情况显示
+        self.updatePrint()
+
+    # 计算文件或文件夹的大小
+    def getSize(self, node):
+        if node.isFile:
+            # 文件大小就是其内容的字节长度
+            data = node.data.read(self.fat, self.disk)
+            return len(data)
+        else:
+            # 文件夹大小是其所有子文件的大小总和
+            total_size = 0
+            for child in node.children:
+                total_size += self.getSize(child)
+            return total_size
 
     # 属性视图
     def viewAttribute(self): 
         if len(self.listView.selectedItems()) == 0:
-            self.child = attributeForm(self.curNode.name, False,self.curNode.createTime,self.curNode.updateTime,len(self.curNode.children))
+            # 当前目录的属性
+            size = self.getSize(self.curNode)
+            self.child = attributeForm(self.curNode.name, False, self.curNode.createTime, self.curNode.updateTime, size, len(self.curNode.children))
             self.child.show()
             return
         else:
             node = self.curNode.children[self.listView.selectedIndexes()[-1].row()]
+            size = self.getSize(node)
             if node.isFile:
-                self.child = attributeForm(node.name, node.isFile, node.createTime, node.updateTime, 0)
+                self.child = attributeForm(node.name, node.isFile, node.createTime, node.updateTime, size, 0)
             else:
-                self.child = attributeForm(node.name, node.isFile, node.createTime, node.updateTime, len(node.children))
+                self.child = attributeForm(node.name, node.isFile, node.createTime, node.updateTime, size, len(node.children))
             self.child.show()
             return
 
@@ -654,11 +1023,10 @@ class myWindow(QMainWindow):
             openFileAction.triggered.connect(self.openFile)
             menu.addAction(openFileAction)
 
-            # 只有选中文件时才显示复制选项
-            if selectedNode.isFile:
-                copyAction = QAction(QIcon('images/copy.png'), '    copy')   # 复制
-                copyAction.triggered.connect(self.copyFile)
-                menu.addAction(copyAction)
+            # 为文件和文件夹都添加复制选项
+            copyAction = QAction(QIcon('images/copy.png'), '    copy')   # 复制
+            copyAction.triggered.connect(self.copyFile)
+            menu.addAction(copyAction)
 
             renameAction = QAction(QIcon('images/rename.png'), '    rename') # 重命名
             renameAction.triggered.connect(self.rename)
@@ -676,6 +1044,29 @@ class myWindow(QMainWindow):
             menu.exec_(dest_point)
 
         else:
+            # 空白区域右键菜单
+            # 添加"查看"子菜单
+            viewMenu = QMenu(menu)
+            viewMenu.setTitle('view')
+            viewMenu.setFont(QFont("Times New Roman", 10))
+            
+            smallIconAction = QAction(QIcon('images/small.png') if os.path.exists('images/small.png') else QIcon(), '  small icons')
+            smallIconAction.triggered.connect(self.setSmallIcons)
+            viewMenu.addAction(smallIconAction)
+            
+            mediumIconAction = QAction(QIcon('images/middle.png') if os.path.exists('images/middle.png') else QIcon(), '  medium icons')
+            mediumIconAction.triggered.connect(self.setMediumIcons)
+            viewMenu.addAction(mediumIconAction)
+            
+            largeIconAction = QAction(QIcon('images/big.png') if os.path.exists('images/big.png') else QIcon(), '  large icons')
+            largeIconAction.triggered.connect(self.setLargeIcons)
+            viewMenu.addAction(largeIconAction)
+            
+            # 设置图标，如果see.png存在就使用它
+            viewMenu.setIcon(QIcon('images/see.png') if os.path.exists('images/see.png') else QIcon())
+            menu.addMenu(viewMenu)
+            
+            # 原有的"新建"菜单
             createMenu = QMenu(menu)
             createMenu.setTitle('new')
             createMenu.setFont(QFont("Times New Roman", 10))
@@ -706,21 +1097,29 @@ class myWindow(QMainWindow):
         node = self.rootNode
         item = self.rootItem
         if item.childCount() < len(node.children):
-            child = QTreeWidgetItem(item)
+            # 增加缺少的子项目
+            for i in range(item.childCount(), len(node.children)):
+                QTreeWidgetItem(item)
         elif item.childCount() > len(node.children):
-            for i in range(item.childCount()):
-                if i == item.childCount()-1:
-                    item.removeChild(item.child(i))
-                    break
-                if item.child(i).text(0) != node.children[i].name:
-                    item.removeChild(item.child(i))
-                    break
+            # 移除多余的子项目
+            for i in range(item.childCount() - 1, len(node.children) - 1, -1):
+                item.removeChild(item.child(i))
 
+        # 更新所有子节点
         for i in range(len(node.children)):
-            self.updateTreeRecursive(node.children[i], item.child(i))
+            if i < item.childCount():  # 确保索引有效
+                child_item = item.child(i)
+                if child_item:  # 确保子项不为None
+                    self.updateTreeRecursive(node.children[i], child_item)
+        
+        # 最后更新根节点本身
         self.updateTreeRecursive(node, item)
 
     def updateTreeRecursive(self, node : CatalogNode, item : QTreeWidgetItem): 
+        # 安全检查：确保item不为None
+        if item is None:
+            return
+            
         item.setText(0, node.name)
         if node.isFile:
             item.setIcon(0, QIcon('images/file.png'))
@@ -729,18 +1128,26 @@ class myWindow(QMainWindow):
                 item.setIcon(0, QIcon('images/folder.png'))
             else:
                 item.setIcon(0, QIcon('images/folder.png'))
-            if item.childCount() < len(node.children):
-                child = QTreeWidgetItem(item)
-            elif item.childCount() > len(node.children):
-                for i in range(item.childCount()):
-                    if i == item.childCount()-1:
-                        item.removeChild(item.child(i))
-                        break
-                    if item.child(i).text(0) != node.children[i].name:
-                        item.removeChild(item.child(i))
-                        break
+                
+            # 调整子项数量
+            current_child_count = item.childCount()
+            
+            # 如果需要更多子项，创建它们
+            if current_child_count < len(node.children):
+                for i in range(current_child_count, len(node.children)):
+                    QTreeWidgetItem(item)
+            
+            # 如果有多余的子项，移除它们
+            elif current_child_count > len(node.children):
+                for i in range(current_child_count - 1, len(node.children) - 1, -1):
+                    item.removeChild(item.child(i))
+            
+            # 更新所有子节点
             for i in range(len(node.children)):
-                self.updateTreeRecursive(node.children[i], item.child(i))
+                if i < item.childCount():  # 确保索引有效
+                    child_item = item.child(i)
+                    if child_item:  # 确保子项不为None
+                        self.updateTreeRecursive(node.children[i], child_item)
 
     # 建立树
     def buildTree(self): 
@@ -751,8 +1158,16 @@ class myWindow(QMainWindow):
 
     # 获取数据
     def getData(self, parameter): 
-        self.writeFile.data.update(parameter, self.fat, self.disk)
+        # 不再需要额外的空间检查，因为FCB.update方法中已经包含了更精确的空间检查
+        # 尝试更新文件数据
+        success = self.writeFile.data.update(parameter, self.fat, self.disk)
+        if not success:
+            self.showDiskFullWarning()
+            return
+            
         self.writeFile.updateTime = time.localtime(time.time())
+        # 更新内存使用情况显示
+        self.updatePrint()
 
     # 递归构建树
     def buildTreeRecursive(self,node: CatalogNode,parent: QTreeWidgetItem): 
@@ -771,17 +1186,26 @@ class myWindow(QMainWindow):
         return child
 
     def loadCurFile(self): 
+        # 重置悬浮状态，防止引用已删除对象
+        if hasattr(self.listView, 'resetHoverState'):
+            self.listView.resetHoverState()
+            
         self.listView.clear()
+
+        # 当前字体大小
+        current_font = QFont("Times New Roman", self.fontSizes[self.currentIconSize])
 
         for i in self.curNode.children:
             if i.isFile:
                 self.item_1 = QListWidgetItem(QIcon("images/file.png"), i.name)
+                self.item_1.setFont(current_font)  # 设置字体大小
                 self.listView.addItem(self.item_1)
             else:
                 if len(i.children) == 0:
                     self.item_1 = QListWidgetItem(QIcon("images/folder.png"), i.name)
                 else:
                     self.item_1 = QListWidgetItem(QIcon("images/folder.png"), i.name)
+                self.item_1.setFont(current_font)  # 设置字体大小
                 self.listView.addItem(self.item_1)
 
     # 格式化操作
@@ -928,7 +1352,7 @@ class myWindow(QMainWindow):
         else:
             event.ignore()
 
-    # 修改复制功能方法，确保只复制文件
+    # 修改复制功能方法，允许复制文件夹
     def copyFile(self):
         if len(self.listView.selectedItems()) == 0:
             return
@@ -936,10 +1360,7 @@ class myWindow(QMainWindow):
         index = self.listView.selectedIndexes()[-1].row()
         node = self.curNode.children[index]
         
-        # 确保只复制文件
-        if not node.isFile:
-            return
-        
+        # 存储被复制的节点
         self.clipboard = node
         
         # 修改为与其他提示框统一的风格
@@ -947,59 +1368,148 @@ class myWindow(QMainWindow):
         reply.setFont(QFont("Times New Roman", 10))
         reply.setWindowTitle('information')
         reply.setWindowIcon(QIcon('images/copy.png'))
-        reply.setText(f'File "{self.clipboard.name}" has been copied.')
+        if node.isFile:
+            reply.setText(f'File "{self.clipboard.name}" has been copied.')
+        else:
+            reply.setText(f'Folder "{self.clipboard.name}" has been copied.')
         reply.setStandardButtons(QMessageBox.Ok)
         buttonOk = reply.button(QMessageBox.Ok)
         buttonOk.setText('ok')
         reply.exec_()
 
-    # 添加粘贴功能
+    # 粘贴功能
     def pasteFile(self):
         if not self.clipboard:
             return
         
-        # 检查目标位置是否已有同名文件/文件夹
-        targetName = self.clipboard.name
-        for child in self.curNode.children:
-            if child.name == targetName:
-                targetName += "(副本)"
-                break
+        # 获取唯一名称
+        targetName = self.getUniqueNameInFolder(self.clipboard.name, self.curNode)
         
+        # 检查是否有足够空间
         if self.clipboard.isFile:
-            # 复制文件
-            data = self.clipboard.data.read(self.fat, self.disk)
-            newNode = CatalogNode(targetName, True, self.fat, self.disk, time.localtime(time.time()), self.curNode)
-            newNode.data.update(data, self.fat, self.disk)
-            self.curNode.children.append(newNode)
-            self.catalog.append(newNode)
+            # 文件复制
+            data_size = len(self.clipboard.data.read(self.fat, self.disk))
+            if not self.fat.hasEnoughSpace(data_size):
+                self.showDiskFullWarning()
+                return
+            
+            # 复制文件节点
+            self.pasteFileNode(self.clipboard, targetName, self.curNode)
         else:
-            # 复制文件夹
+            # 文件夹复制 - 先检查总大小
+            folder_size = self.calculateFolderSize(self.clipboard)
+            if not self.fat.hasEnoughSpace(folder_size):
+                self.showDiskFullWarning()
+                return
+            
+            # 复制文件夹及其内容
             newNode = CatalogNode(targetName, False, self.fat, self.disk, time.localtime(time.time()), self.curNode)
             self.curNode.children.append(newNode)
             self.catalog.append(newNode)
-            self.copyFolderRecursive(self.clipboard, newNode)
+            
+            # 递归复制文件夹内容
+            try:
+                for child in self.clipboard.children:
+                    self.copyFolderContents(child, newNode)
+            except Exception as e:
+                # 如果复制过程中发生错误，清理已复制的内容
+                self.deleteFileRecursive(newNode)
+                self.curNode.children.remove(newNode)
+                self.catalog.remove(newNode)
+                
+                # 显示错误信息
+                errorBox = QMessageBox()
+                errorBox.setWindowTitle("Error")
+                errorBox.setIcon(QMessageBox.Critical)
+                errorBox.setText(f"Failed to copy folder: {str(e)}")
+                errorBox.exec_()
+                return
         
-        # 刷新视图
+        # 刷新视图，确保使用正确的字体大小
         self.updateTree()
-        self.loadCurFile()
+        self.loadCurFile()  # 这会应用当前的字体大小
+        # 更新内存使用情况显示
+        self.updatePrint()
+    
+    # 递归复制文件夹内容
+    def copyFolderContents(self, sourceNode, targetParentNode):
+        # 为当前节点创建一个唯一名称
+        newName = self.getUniqueNameInFolder(sourceNode.name, targetParentNode)
+        
+        if sourceNode.isFile:
+            # 复制文件
+            if not self.pasteFileNode(sourceNode, newName, targetParentNode):
+                raise Exception(f"Failed to copy file {sourceNode.name}")
+        else:
+            # 创建新文件夹节点
+            newNode = CatalogNode(newName, False, self.fat, self.disk, time.localtime(time.time()), targetParentNode)
+            targetParentNode.children.append(newNode)
+            self.catalog.append(newNode)
+            
+            # 递归复制子内容
+            for child in sourceNode.children:
+                self.copyFolderContents(child, newNode)
+                
+    # 获取文件夹中的唯一名称
+    def getUniqueNameInFolder(self, originalName, parentNode):
+        # 检查是否已存在同名项
+        existingNames = [child.name for child in parentNode.children]
+        
+        if originalName not in existingNames:
+            return originalName
+            
+        # 检查是否已有编号后缀的同名项
+        baseName = originalName
+        maxNumber = 0
+        
+        # 使用正则表达式匹配"name(数字)"模式
+        import re
+        pattern = re.compile(r'^(.*?)(\(\d+\))$')
+        
+        # 首先检查原始名称是否已经有编号
+        match = pattern.match(originalName)
+        if match:
+            baseName = match.group(1)  # 提取基本名称（不含编号）
+        
+        # 查找已存在的最大编号
+        for name in existingNames:
+            # 只检查与基本名称相关的项
+            if name == baseName or name.startswith(baseName + "("):
+                match = pattern.match(name)
+                if match:
+                    # 提取编号并更新最大值
+                    numStr = match.group(2)[1:-1]  # 去掉括号
+                    try:
+                        num = int(numStr)
+                        maxNumber = max(maxNumber, num)
+                    except ValueError:
+                        pass
+        
+        # 返回基本名称加下一个编号
+        return f"{baseName}({maxNumber + 1})"
 
-    # 递归复制文件夹
-    def copyFolderRecursive(self, sourceNode, targetNode):
-        for child in sourceNode.children:
+    # 计算文件夹所需空间
+    def calculateFolderSize(self, folderNode):
+        total_size = 0
+        for child in folderNode.children:
             if child.isFile:
-                # 复制文件
                 data = child.data.read(self.fat, self.disk)
-                newNode = CatalogNode(child.name, True, self.fat, self.disk, time.localtime(time.time()), targetNode)
-                newNode.data.update(data, self.fat, self.disk)
-                targetNode.children.append(newNode)
-                self.catalog.append(newNode)
+                total_size += len(data)
             else:
-                # 复制文件夹
-                newNode = CatalogNode(child.name, False, self.fat, self.disk, time.localtime(time.time()), targetNode)
-                targetNode.children.append(newNode)
-                self.catalog.append(newNode)
-                self.copyFolderRecursive(child, newNode)
-
+                total_size += self.calculateFolderSize(child)
+        return total_size
+        
+    # 显示磁盘空间不足警告
+    def showDiskFullWarning(self):
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("警告")
+        msgBox.setWindowIcon(QIcon('images/warning.png'))
+        msgBox.setText("磁盘空间不足")
+        msgBox.setInformativeText("无法完成操作，请先清理磁盘空间。")
+        msgBox.setIcon(QMessageBox.Warning)
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.exec_()
+        
     # 搜索功能
     def focusSearch(self):
         self.searchBox.setFocus()
@@ -1141,6 +1651,146 @@ class myWindow(QMainWindow):
                     self.child.show()
                     self.writeFile = node
                     break
+
+    # 更新图标大小
+    def updateIconSize(self):
+        idx = self.currentIconSize
+        # 设置图标大小
+        self.listView.setIconSize(QSize(*self.iconSizes[idx]))
+        # 设置网格大小
+        self.listView.setGridSize(QSize(*self.gridSizes[idx]))
+        
+        # 更新所有项目的字体大小
+        font = QFont("Times New Roman", self.fontSizes[idx])
+        for i in range(self.listView.count()):
+            item = self.listView.item(i)
+            item.setFont(font)
+        
+        # 刷新视图以应用更改
+        self.listView.reset()
+        
+    # 设置小图标
+    def setSmallIcons(self):
+        self.currentIconSize = 0
+        # 重置悬浮状态，防止引用已删除对象
+        if hasattr(self.listView, 'resetHoverState'):
+            self.listView.resetHoverState()
+        self.updateIconSize()
+        self.loadCurFile()  # 重新加载当前文件以确保图标大小正确应用
+        
+    # 设置中图标
+    def setMediumIcons(self):
+        self.currentIconSize = 1
+        # 重置悬浮状态，防止引用已删除对象
+        if hasattr(self.listView, 'resetHoverState'):
+            self.listView.resetHoverState()
+        self.updateIconSize()
+        self.loadCurFile()  # 重新加载当前文件以确保图标大小正确应用
+        
+    # 设置大图标
+    def setLargeIcons(self):
+        self.currentIconSize = 2
+        # 重置悬浮状态，防止引用已删除对象
+        if hasattr(self.listView, 'resetHoverState'):
+            self.listView.resetHoverState()
+        self.updateIconSize()
+        self.loadCurFile()  # 重新加载当前文件以确保图标大小正确应用
+
+    # 复制文件节点
+    def pasteFileNode(self, sourceNode, targetName, parentNode):
+        # 读取源文件内容
+        data = sourceNode.data.read(self.fat, self.disk)
+        
+        # 创建新节点并写入数据
+        newNode = CatalogNode(targetName, True, self.fat, self.disk, time.localtime(time.time()), parentNode)
+        success = newNode.data.update(data, self.fat, self.disk)
+        
+        # 如果写入成功，添加到父节点和目录列表
+        if success:
+            parentNode.children.append(newNode)
+            self.catalog.append(newNode)
+            return True
+        return False
+
+# 自定义悬浮框类
+class CustomTooltip(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        # 设置透明背景
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
+        
+        # 创建布局
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(1, 1, 1, 1)
+        self.layout.setSpacing(0)
+        
+        # 创建内容容器 - 这个容器将设置背景色
+        self.container = QFrame(self)
+        self.container.setObjectName("tooltipContainer")
+        self.container.setStyleSheet("""
+            #tooltipContainer {
+                background-color:rgba(80, 80, 80, 0.59);
+                border-radius: 4px;
+                border: 1px solid rgba(80, 80, 80, 0.59);
+            }
+        """)
+        self.container_layout = QVBoxLayout(self.container)
+        self.container_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # 创建文本标签
+        self.text_label = QLabel(self.container)
+        self.text_label.setTextFormat(Qt.RichText)
+        self.text_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-family: "Times New Roman", Times, serif;
+                background-color: transparent;
+                font-size: 10pt;
+            }
+        """)
+        self.container_layout.addWidget(self.text_label)
+        
+        # 将容器添加到主布局
+        self.layout.addWidget(self.container)
+        
+        # 初始化不可见
+        self.hide()
+    
+    # 重写绘制事件
+    def paintEvent(self, event):
+        # 确保背景透明
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.fillRect(self.rect(), Qt.transparent)
+        super().paintEvent(event)
+        
+    def showTooltip(self, content, pos):
+        # 设置内容
+        self.text_label.setText(content)
+        
+        # 调整大小
+        self.adjustSize()
+        
+        # 计算位置
+        screen_rect = QApplication.desktop().screenGeometry()
+        tooltip_width = self.width()
+        tooltip_height = self.height()
+        
+        # 确保工具提示不会超出屏幕
+        x = min(pos.x() + 15, screen_rect.width() - tooltip_width - 5)
+        y = min(pos.y(), screen_rect.height() - tooltip_height - 5)
+        
+        # 设置位置
+        self.move(x, y)
+        
+        # 显示并提升到最上层
+        self.show()
+        self.raise_()
+        
+    def hideTooltip(self):
+        self.hide()
 
 # 主函数
 if __name__=='__main__':
